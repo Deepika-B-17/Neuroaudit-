@@ -1,0 +1,62 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# IDE / editors
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Flask
+instance/
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# EEG / large datasets
+data/
+datasets/
+*.edf
+*.bdf
+*.fif
+*.set
+*.fdt
+*.mat
+
+# Generated files
+uploads/
+outputs/
+results/
+
+# Python build files
+build/
+dist/
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/

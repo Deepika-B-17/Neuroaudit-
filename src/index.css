@@ -1,0 +1,109 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --color-background: var(--na-bg);
+  --color-nav: var(--na-nav);
+  --color-surface: var(--na-surface);
+  --color-section: var(--na-section);
+  --color-card: var(--na-card);
+  --color-foreground: var(--na-text);
+  --color-muted: var(--na-muted);
+  --color-border: var(--na-border);
+  --color-accent: var(--na-accent);
+  --color-accent-foreground: var(--na-accent-fg);
+  --color-accent-soft: var(--na-accent-soft);
+  --color-risk-low: var(--na-risk-low);
+  --color-risk-medium: var(--na-risk-medium);
+  --color-risk-high: var(--na-risk-high);
+  --radius-na: 0.625rem;
+  --shadow-na: var(--na-shadow);
+  --shadow-elevated: var(--na-shadow-elevated);
+}
+
+:root {
+  --na-bg: #eaf3f6;
+  --na-nav: #f7fafb;
+  --na-surface: #f7fafb;
+  --na-section: #f4f8f9;
+  --na-card: #ffffff;
+  --na-text: #102a43;
+  --na-muted: #5b7083;
+  --na-border: #d2e0e5;
+  --na-accent: #0891b2;
+  --na-accent-fg: #ffffff;
+  --na-accent-soft: #e6f4f7;
+  --na-risk-low: #15803d;
+  --na-risk-medium: #b45309;
+  --na-risk-high: #b91c1c;
+  --na-shadow: 0 0 0 transparent;
+  --na-shadow-elevated: 0 1px 2px rgb(16 42 67 / 0.04), 0 10px 24px rgb(16 42 67 / 0.05);
+  --na-eeg: #0891b2;
+  --na-grid: rgb(16 42 67 / 0.08);
+}
+
+.dark {
+  --na-bg: #07111f;
+  --na-nav: #07111f;
+  --na-surface: #0d1b2a;
+  --na-section: #0d1b2a;
+  --na-card: #102235;
+  --na-text: #f4f7fa;
+  --na-muted: #9baab8;
+  --na-border: #1c3a4d;
+  --na-accent: #22d3ee;
+  --na-accent-fg: #07111f;
+  --na-accent-soft: #0e2a3a;
+  --na-risk-low: #34d399;
+  --na-risk-medium: #fbbf24;
+  --na-risk-high: #f87171;
+  --na-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 14px 36px rgb(0 0 0 / 0.28);
+  --na-shadow-elevated: 0 1px 2px rgb(0 0 0 / 0.4), 0 14px 36px rgb(0 0 0 / 0.28);
+  --na-eeg: #22d3ee;
+  --na-grid: rgb(244 247 250 / 0.07);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  overflow-x: hidden;
+  background: var(--na-bg);
+  color: var(--na-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+*:focus-visible {
+  outline: 2px solid var(--na-accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--na-accent) 28%, transparent);
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background: white;
+    color: #0b1f33;
+  }
+}
