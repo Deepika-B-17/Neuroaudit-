@@ -59,6 +59,10 @@ def _sanitize_array(arr: np.ndarray, fill: float = 0.0) -> np.ndarray:
     return arr
 
 
+# Compatibility helper for numpy trapz/trapezoid
+_trapz = getattr(np, "trapezoid", getattr(np, "trapz", None))
+
+
 # ---------------------------------------------------------------------------
 # Main extraction function
 # ---------------------------------------------------------------------------
@@ -73,8 +77,14 @@ def extract_features_from_raw(raw) -> dict:
     powers as percentages (0-100).  The internal ``band_powers_abs`` variable
     holds the absolute µV² values used for ratio calculations.
     """
-    sfreq      = float(raw.info["sfreq"])
+    sfreq      = float(raw.info.get("sfreq", 0.0))
+    if sfreq <= 0:
+        raise ValueError(f"Invalid sampling rate sfreq={sfreq}: must be positive.")
+
     data       = raw.get_data()              # (n_channels, n_times)  [V]
+    if data.ndim != 2 or data.shape[0] == 0 or data.shape[1] == 0:
+        raise ValueError("EEG data must be a 2D array with at least 1 channel and 1 sample.")
+
     ch_names   = [ch.upper() for ch in raw.ch_names]
     n_channels, n_times = data.shape
 
@@ -89,6 +99,8 @@ def extract_features_from_raw(raw) -> dict:
     nperseg = min(n_times, int(sfreq * 2))
     if nperseg < 16:
         nperseg = n_times   # fall back for very short signals
+    if nperseg < 1:
+        nperseg = 1
 
     freqs, psd = signal.welch(data, fs=sfreq, nperseg=nperseg, axis=-1)
     psd = _sanitize_array(psd)
@@ -98,10 +110,14 @@ def extract_features_from_raw(raw) -> dict:
     for band, (fmin, fmax) in FREQ_BANDS.items():
         idx = np.logical_and(freqs >= fmin, freqs <= fmax)
         if np.any(idx):
-            bp = np.trapezoid(psd[:, idx], freqs[idx], axis=-1)
+            if np.count_nonzero(idx) == 1:
+                # Single frequency bin fallback
+                bp = psd[:, idx].squeeze(axis=-1)
+            else:
+                bp = _trapz(psd[:, idx], freqs[idx], axis=-1)
         else:
             bp = np.zeros(n_channels)
-        band_powers_abs[band] = _sanitize_array(bp)
+        band_powers_abs[band] = np.maximum(0.0, _sanitize_array(bp))
 
     # Relative band powers normalised to total power (summed across all 5 bands)
     total_power = np.sum(list(band_powers_abs.values()), axis=0) + 1e-12
@@ -229,12 +245,12 @@ def extract_features_from_raw(raw) -> dict:
     # Mobility   = sqrt(Var(x') / Var(x))   — mean frequency estimator
     # Complexity  = Mobility(x') / Mobility(x) — spectral bandwidth ratio
     # -------------------------------------------------------------------------
-    diff1  = np.diff(data, axis=-1)
-    diff2  = np.diff(diff1, axis=-1)
+    diff1 = np.diff(data, axis=-1) if n_times >= 2 else np.zeros_like(data)
+    diff2 = np.diff(diff1, axis=-1) if n_times >= 3 else np.zeros_like(data)
 
-    var0 = _sanitize_array(np.var(data,  axis=-1)) + 1e-12
-    var1 = _sanitize_array(np.var(diff1, axis=-1)) + 1e-12
-    var2 = _sanitize_array(np.var(diff2, axis=-1)) + 1e-12
+    var0 = np.maximum(1e-12, _sanitize_array(np.var(data,  axis=-1)) + 1e-12)
+    var1 = np.maximum(1e-12, _sanitize_array(np.var(diff1, axis=-1)) + 1e-12)
+    var2 = np.maximum(1e-12, _sanitize_array(np.var(diff2, axis=-1)) + 1e-12)
 
     activity   = _safe_scalar(float(np.mean(var0)))
     mobility   = _safe_scalar(float(np.mean(np.sqrt(var1 / var0))))
@@ -249,10 +265,11 @@ def extract_features_from_raw(raw) -> dict:
     # Reference: Marcel & Millán (2007) J. Mach. Learn. Res.
     # -------------------------------------------------------------------------
     if n_channels > 1:
-        corr_matrix = np.corrcoef(data)
-        corr_matrix = _sanitize_array(corr_matrix)
+        with np.errstate(divide='ignore', invalid='ignore'):
+            corr_matrix = np.corrcoef(data)
+        corr_matrix = _sanitize_array(corr_matrix, fill=0.0)
         eigenvalues = np.linalg.eigvalsh(corr_matrix)
-        eigenvalues = _sanitize_array(eigenvalues)
+        eigenvalues = _sanitize_array(eigenvalues, fill=0.0)
         bui = _safe_scalar(
             float(np.std(eigenvalues)) /
             (float(np.mean(np.abs(corr_matrix))) + 1e-6)

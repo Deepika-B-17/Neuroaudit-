@@ -316,3 +316,21 @@ All 7 stabilization tasks executed and verified. Test suite expanded from 3 to 8
 - auditApi.ts: extractApiErrorMessage() handles structured error format
 
 See docs/PHASE_1_CHANGELOG.md for full details.
+
+---
+
+## Phase 2 — COMPLETE (2026-08-26)
+
+Phase 2 — Feature Validation & Documentation completed.
+
+**Changes summary:**
+- `backend/pipeline/features.py`: Added NumPy 1.x/2.x `trapz`/`trapezoid` compatibility helper; safeguarded Hjorth 1st and 2nd derivative calculations for short signals; zero-variance correlation matrix warning suppression; input assertions on sampling rate and array dimension.
+- `backend/tests/test_features.py`: Implemented 9 unit tests verifying normal signals, short recordings, flatlines, zero-power sinusoidal signals, arbitrary channel names, single-channel fallbacks, sampling rate variations, bit-exact reproducibility, and invalid input rejection.
+- `docs/FEATURE_DEFINITIONS.md`: Documented all 16 feature extraction algorithms, mathematical formulas, output structures, research interpretation, limitations, and the Feature Quality & Validation Summary Matrix.
+- `docs/PHASE_2_CHANGELOG.md`: Created detailed record of features reviewed, bugs fixed, tests added, and test execution results.
+
+**Verification:**
+- `python backend/tests/test_backend.py`: 8 / 8 tests PASSED.
+- `python backend/tests/test_features.py`: 9 / 9 tests PASSED.
+- `npm run build`: PASSED (0 TypeScript errors).
+
