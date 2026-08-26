@@ -63,11 +63,31 @@ flowchart TD
 
 ---
 
-## 4. Empirical Validation Roadmap (Future Phases)
+## 4. Empirical Validation Roadmap & Current Status
 
-| Phase | Milestone | Objective | Deliverables |
-|---|---|---|---|
-| **Phase 4** | **Empirical Dataset Integration & Preprocessing** | Download and standardize public EEG benchmark datasets with ground-truth labels. | `backend/datasets/` loaders, montage standardization, preprocessing pipelines. |
-| **Phase 5** | **Interpretable ML Classifiers** | Implement scikit-learn models for each of the 4 risk dimensions. | Logistic Regression, Random Forest, SVM training pipelines with GroupKFold cross-validation. |
-| **Phase 6** | **Empirical Risk Calibration Layer** | Map empirical classifier accuracy above chance to calibrated privacy exposure scores. | Calibration curves, dual-layer scoring (Heuristic + Empirical ML). |
-| **Phase 7** | **Defense Simulation & Utility Validation** | Empirically validate privacy protections (Laplace DP noise, bandstop filtering) against ML adversaries. | Mitigation simulations, Privacy vs. Utility (SNR/ERP) tradeoff metrics. |
+| Phase | Milestone | Status | Deliverables |
+|---|---|:---:|---|
+| **Phase 1** | **Stabilization & Hardening** | **COMPLETE** | Defensive signal filtering, upload validation, robust error handling. |
+| **Phase 2** | **EEG Feature Validation** | **COMPLETE** | Numerical stability, test suite (`test_features.py`), algorithmic definitions. |
+| **Phase 3** | **Baseline Methodology** | **COMPLETE** | Mathematical traceability, contributor breakdowns, score bounds (`test_scoring.py`). |
+| **Phase 4** | **Dataset & Protocol Preparation** | **COMPLETE** | PhysioNet EEGBCI selection (`DATASET_SELECTION.md`), protocol (`EXPERIMENT_PROTOCOL.md`), schema (`ML_FEATURE_SCHEMA.md`), ML scaffold (`backend/ml/`). |
+| **Phase 5** | **Interpretable ML Classifiers** | *Future* | Logistic Regression, Random Forest, SVM training pipelines with GroupKFold cross-validation. |
+| **Phase 6** | **Empirical Risk Calibration Layer** | *Future* | Calibration curves, dual-layer scoring (Heuristic + Empirical ML). |
+| **Phase 7** | **Defense Simulation & Utility Validation** | *Future* | Mitigation simulations, Privacy vs. Utility (SNR/ERP) tradeoff metrics. |
+
+---
+
+## 5. Explicit Distinction: Current vs. Future State
+
+* **CURRENT (Phases 1–4):**
+  - Verified signal-processing and feature extraction pipeline producing 19 deterministic features.
+  - Transparent heuristic baseline scoring with fully attributable feature contributions.
+  - Formally specified experiment protocol, leakage-free cross-validation plan, feature schema, and dataset selection.
+  - **No empirical training or model classification results exist yet.**
+
+* **FUTURE (Phase 5+):**
+  - Download of modular PhysioNet EEGBCI subject data.
+  - Training of supervised scikit-learn classifiers on extracted 19-feature vectors.
+  - Execution of GroupKFold cross-run re-identification evaluation.
+  - Empirical measurement of adversary advantage ($\gamma$) and calibration curve fitting.
+
