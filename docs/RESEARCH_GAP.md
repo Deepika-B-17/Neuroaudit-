@@ -71,23 +71,22 @@ flowchart TD
 | **Phase 2** | **EEG Feature Validation** | **COMPLETE** | Numerical stability, test suite (`test_features.py`), algorithmic definitions. |
 | **Phase 3** | **Baseline Methodology** | **COMPLETE** | Mathematical traceability, contributor breakdowns, score bounds (`test_scoring.py`). |
 | **Phase 4** | **Dataset & Protocol Preparation** | **COMPLETE** | PhysioNet EEGBCI selection (`DATASET_SELECTION.md`), protocol (`EXPERIMENT_PROTOCOL.md`), schema (`ML_FEATURE_SCHEMA.md`), ML scaffold (`backend/ml/`). |
-| **Phase 5** | **Interpretable ML Classifiers** | *Future* | Logistic Regression, Random Forest, SVM training pipelines with GroupKFold cross-validation. |
-| **Phase 6** | **Empirical Risk Calibration Layer** | *Future* | Calibration curves, dual-layer scoring (Heuristic + Empirical ML). |
+| **Phase 5** | **Empirical ML Subject Inference** | **COMPLETE** | Leakage-free GroupKFold evaluation, Logistic Regression & Random Forest classifiers, verified results (`EMPIRICAL_RESULTS.md`). |
+| **Phase 6** | **Empirical Risk Calibration Layer** | *Future* | Calibration curves mapping empirical adversary advantage ($\gamma$) to privacy exposure scores. |
 | **Phase 7** | **Defense Simulation & Utility Validation** | *Future* | Mitigation simulations, Privacy vs. Utility (SNR/ERP) tradeoff metrics. |
 
 ---
 
 ## 5. Explicit Distinction: Current vs. Future State
 
-* **CURRENT (Phases 1–4):**
+* **CURRENT (Phases 1–5):**
   - Verified signal-processing and feature extraction pipeline producing 19 deterministic features.
   - Transparent heuristic baseline scoring with fully attributable feature contributions.
-  - Formally specified experiment protocol, leakage-free cross-validation plan, feature schema, and dataset selection.
-  - **No empirical training or model classification results exist yet.**
+  - Formally executed empirical subject-inference experiment with zero subject leakage across 10 benchmark subjects and 600 epochs.
+  - Real empirical results recorded in `docs/EMPIRICAL_RESULTS.md` and exported to `results/subject_identification_results.json`.
 
-* **FUTURE (Phase 5+):**
-  - Download of modular PhysioNet EEGBCI subject data.
-  - Training of supervised scikit-learn classifiers on extracted 19-feature vectors.
-  - Execution of GroupKFold cross-run re-identification evaluation.
-  - Empirical measurement of adversary advantage ($\gamma$) and calibration curve fitting.
+* **FUTURE (Phase 6+):**
+  - Development of empirical calibration curves mapping measured adversary advantage ($\gamma$) directly into privacy risk scores.
+  - Dual-layer risk scoring integrating both baseline heuristics and empirical ML models.
+  - Defense simulation measuring differential privacy and frequency suppression effectiveness against ML adversaries.
 
