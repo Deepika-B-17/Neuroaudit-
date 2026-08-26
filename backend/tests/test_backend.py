@@ -1,5 +1,6 @@
 import os
 import sys
+import io
 import unittest
 import json
 import tempfile
@@ -119,6 +120,88 @@ class TestNeuroAuditBackend(unittest.TestCase):
         self.assertEqual(pdf_res.status_code, 200)
         self.assertEqual(pdf_res.mimetype, "application/pdf")
         self.assertTrue(pdf_res.data.startswith(b"%PDF"))
+
+    def test_short_signal_processing(self):
+        """Test short duration EEG processing (0.5s) without filter crash."""
+        import mne
+        data, ch_names, sfreq = generate_synthetic_eeg(duration_sec=0.5, n_channels=8, profile="resting")
+        info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types="eeg")
+        raw_obj = mne.io.RawArray(data, info, verbose=False)
+        with tempfile.NamedTemporaryFile(suffix="-raw.fif", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            raw_obj.save(tmp_path, overwrite=True, verbose=False)
+            raw, metadata, preview_traces, quality_report = load_eeg_file(tmp_path)
+            self.assertEqual(metadata["duration_sec"], 0.5)
+            self.assertFalse(quality_report["passed"])  # Flagged by quality gate for < 2.0s
+            features = extract_features_from_raw(raw)
+            self.assertIn("iapf_hz", features)
+            self.assertTrue(np.isfinite(features["theta_beta_ratio"]))
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    def test_too_short_signal_rejection(self):
+        """Test that sub-0.2s recordings fail gracefully with a clear ValueError."""
+        import mne
+        data, ch_names, sfreq = generate_synthetic_eeg(duration_sec=0.1, n_channels=8, profile="resting")
+        info = mne.create_info(ch_names=ch_names, sfreq=sfreq, ch_types="eeg")
+        raw_obj = mne.io.RawArray(data, info, verbose=False)
+        with tempfile.NamedTemporaryFile(suffix="-raw.fif", delete=False) as tmp:
+            tmp_path = tmp.name
+
+        try:
+            raw_obj.save(tmp_path, overwrite=True, verbose=False)
+            with self.assertRaises(ValueError) as ctx:
+                load_eeg_file(tmp_path)
+            self.assertIn("too short", str(ctx.exception).lower())
+        finally:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+
+    def test_upload_security_and_validation(self):
+        """Test file upload validation (empty file, invalid extension, missing file)."""
+        # 1. Missing file field
+        res = self.client.post("/api/upload", data={})
+        self.assertEqual(res.status_code, 400)
+        data = res.get_json()
+        self.assertEqual(data["error"]["code"], "MISSING_FILE")
+
+        # 2. Unsupported extension
+        res = self.client.post(
+            "/api/upload",
+            data={"file": (io.BytesIO(b"dummy data"), "malicious_script.exe")},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(res.status_code, 415)
+        data = res.get_json()
+        self.assertEqual(data["error"]["code"], "UNSUPPORTED_FILE_TYPE")
+
+        # 3. Empty file (0 bytes)
+        res = self.client.post(
+            "/api/upload",
+            data={"file": (io.BytesIO(b""), "empty.edf")},
+            content_type="multipart/form-data",
+        )
+        self.assertEqual(res.status_code, 400)
+        data = res.get_json()
+        self.assertEqual(data["error"]["code"], "EMPTY_FILE")
+
+    def test_structured_error_responses(self):
+        """Test structured error format on non-existent resources."""
+        res = self.client.get("/api/analysis/non_existent_session_123")
+        self.assertEqual(res.status_code, 404)
+        data = res.get_json()
+        self.assertFalse(data["success"])
+        self.assertEqual(data["error"]["code"], "SESSION_NOT_FOUND")
+
+    def test_upload_cleanup(self):
+        """Test the upload cleanup utility."""
+        from app import cleanup_old_uploads, UPLOADS_DIR
+        # Run cleanup with 0 max age hours to simulate removing expired files
+        removed = cleanup_old_uploads(max_age_hours=0)
+        self.assertIsInstance(removed, int)
 
 if __name__ == "__main__":
     unittest.main()

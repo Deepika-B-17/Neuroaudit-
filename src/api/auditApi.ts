@@ -2,6 +2,17 @@ import type { AuditRecord, BenchmarkSample, RecentAudit, Recommendation } from '
 
 const API_BASE = '/api'
 
+function extractApiErrorMessage(errorData: any, fallback: string): string {
+  if (!errorData) return fallback
+  if (errorData.error && typeof errorData.error === 'object') {
+    return errorData.error.message || errorData.error.details || fallback
+  }
+  if (typeof errorData.error === 'string') {
+    return errorData.error
+  }
+  return errorData.details || errorData.message || fallback
+}
+
 export async function checkBackendHealth(): Promise<boolean> {
   try {
     const res = await fetch(`${API_BASE}/health`)
@@ -28,7 +39,7 @@ export async function uploadEEGFile(
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
-    throw new Error(errorData.details || errorData.error || 'Failed to upload and analyze EEG file')
+    throw new Error(extractApiErrorMessage(errorData, 'Failed to upload and analyze EEG file'))
   }
 
   return res.json()
@@ -51,7 +62,7 @@ export async function loadBenchmarkSample(
 
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}))
-    throw new Error(errorData.details || errorData.error || 'Failed to load benchmark sample')
+    throw new Error(extractApiErrorMessage(errorData, 'Failed to load benchmark sample'))
   }
 
   return res.json()

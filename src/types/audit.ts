@@ -1,6 +1,6 @@
 export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH'
 
-export type Priority = 'HIGH' | 'MEDIUM' | 'LOW'
+export type Priority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
 export type RiskDimensionKey = 'identity' | 'emotion' | 'stress' | 'workload'
 
@@ -12,6 +12,9 @@ export interface RiskDimension {
   summary: string
   explanation: string
   concern: string
+  contributing_indicators?: string[]
+  model_type?: string
+  quality_qualified?: boolean
 }
 
 export interface Recommendation {
@@ -19,8 +22,18 @@ export interface Recommendation {
   number: string
   title: string
   priority: Priority
-  why: string
-  action: string
+  severity?: RiskLevel | string
+  risk_dimension?: string
+  threat?: string
+  evidence?: string[]
+  why?: string
+  reason?: string
+  control?: string
+  action?: string
+  implementation?: string[]
+  expected_impact?: string
+  residual_risk?: string
+  evidence_status?: string
 }
 
 export interface RecentAudit {

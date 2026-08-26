@@ -26,7 +26,6 @@ export function EEGChart({
   const labelWidth = compact ? 36 : 44
   const axisHeight = showTimeAxis ? 22 : 8
   const plotHeight = height - axisHeight
-  const rowH = plotHeight / Math.max(channels.length, 1)
 
   useEffect(() => {
     if (!animated) return undefined
@@ -39,21 +38,44 @@ export function EEGChart({
     return () => window.cancelAnimationFrame(frame)
   }, [animated])
 
+  // Determine active channels dynamically:
+  // If customTraces has data, strictly use real channels from customTraces!
+  const effectiveChannels = useMemo(() => {
+    if (customTraces && Object.keys(customTraces).length > 0) {
+      const traceKeys = Object.keys(customTraces)
+      // Check if requested channels exist in traceKeys
+      const matched = (channels as string[]).filter((ch) => traceKeys.includes(ch))
+      if (matched.length > 0) {
+        return matched
+      }
+      // If none of requested channels matched, use the real available channels (up to 8)
+      return traceKeys.slice(0, 8)
+    }
+    return channels as string[]
+  }, [channels, customTraces])
+
+  const hasRealData = Boolean(customTraces && Object.keys(customTraces).length > 0)
+  const rowH = plotHeight / Math.max(effectiveChannels.length, 1)
+
   const paths = useMemo(
     () =>
-      channels.map((channel) => {
+      effectiveChannels.map((channel) => {
         let values: number[] = []
         if (customTraces && customTraces[channel]) {
           const rawValues = customTraces[channel]
-          if (animated) {
+          if (animated && rawValues.length > 0) {
             // Apply slight cyclic offset shift for animation
             const shift = Math.floor((offset * 20) % rawValues.length)
             values = [...rawValues.slice(shift), ...rawValues.slice(0, shift)]
           } else {
             values = rawValues
           }
-        } else {
+        } else if (!hasRealData) {
+          // Only fallback to mock generator if NO real EEG data is loaded in the session
           values = buildChannelSeries(channel as EegChannel, compact ? 140 : 220, offset)
+        } else {
+          // Real data exists for other channels, but this specific channel is missing
+          values = new Array(compact ? 140 : 200).fill(0)
         }
 
         return {
@@ -61,7 +83,7 @@ export function EEGChart({
           d: seriesToPath(values, width, rowH, rowH / 2),
         }
       }),
-    [channels, customTraces, compact, offset, rowH, animated],
+    [effectiveChannels, customTraces, compact, offset, rowH, animated, hasRealData],
   )
 
   return (

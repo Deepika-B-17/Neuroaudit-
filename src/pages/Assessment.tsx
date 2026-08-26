@@ -8,20 +8,37 @@ import { RiskLevelBadge } from '../components/ui/Badge'
 import { EEGChart } from '../components/eeg/EEGChart'
 import { useAudit } from '../context/AuditSessionContext'
 import { cn } from '../lib/cn'
-import { EEG_CHANNELS, type EegChannel } from '../data/mockEeg'
 import type { RiskDimensionKey } from '../types/audit'
 
-const channelSets: Record<RiskDimensionKey, readonly EegChannel[]> = {
-  identity: ['FP1', 'FP2', 'O1', 'O2'],
-  emotion: ['FP1', 'FP2', 'F3', 'F4'],
-  stress: ['C3', 'C4', 'P3', 'P4'],
-  workload: ['F3', 'F4', 'C3', 'C4'],
+const preferredDimensionChannels: Record<RiskDimensionKey, readonly string[]> = {
+  identity: ['FP1', 'FP2', 'O1', 'O2', 'CZ', 'PZ', 'F3', 'F4'],
+  emotion: ['FP1', 'FP2', 'F3', 'F4', 'F7', 'F8', 'C3', 'C4'],
+  stress: ['C3', 'C4', 'P3', 'P4', 'T3', 'T4', 'FP1', 'FP2'],
+  workload: ['F3', 'F4', 'C3', 'C4', 'FZ', 'CZ', 'P3', 'P4'],
+}
+
+function resolveDimensionChannels(
+  dimKey: RiskDimensionKey,
+  availableChannels?: string[]
+): string[] {
+  const preferred = preferredDimensionChannels[dimKey] || ['FP1', 'FP2', 'F3', 'F4']
+  if (!availableChannels || availableChannels.length === 0) {
+    return [...preferred.slice(0, 4)]
+  }
+  const matched = preferred.filter((ch) => availableChannels.includes(ch))
+  if (matched.length > 0) {
+    return matched.slice(0, 4)
+  }
+  return availableChannels.slice(0, 4)
 }
 
 export function Assessment() {
   const navigate = useNavigate()
   const audit = useAudit()
   const [open, setOpen] = useState<string | null>(audit.dimensions[0]?.key ?? null)
+  const availableChannels = audit.features?.preview_traces
+    ? Object.keys(audit.features.preview_traces)
+    : []
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -71,7 +88,7 @@ export function Assessment() {
                   </p>
                   <div className="mt-4">
                     <EEGChart
-                      channels={channelSets[dim.key] ?? EEG_CHANNELS}
+                      channels={resolveDimensionChannels(dim.key, availableChannels)}
                       customTraces={audit.features?.preview_traces}
                       height={120}
                       compact

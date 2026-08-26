@@ -128,6 +128,11 @@ def extract_features_from_raw(raw) -> dict:
     # Formula: FAA = ln(α_right) − ln(α_left)
     # Reference: Davidson (1998, 2004) — approach-withdrawal affective model
     # Channels: FP2/F4 (right), FP1/F3 (left)
+    #
+    # Bug fix (Phase 2): The original f3_idx lookup used "FP1" as a fallback
+    # candidate, which could return the same electrode index as fp1_idx, making
+    # the elif branch compute FAA between an electrode and itself (→ always 0).
+    # Corrected to use distinct right-hemisphere candidates only.
     # -------------------------------------------------------------------------
     def get_ch_index(*candidates):
         for cand in candidates:
@@ -137,19 +142,23 @@ def extract_features_from_raw(raw) -> dict:
                     return idx
         return None
 
-    fp1_idx = get_ch_index("FP1", "F3", "F7")
-    fp2_idx = get_ch_index("FP2", "F4", "F8")
-    f3_idx  = get_ch_index("F3",  "FP1")
-    f4_idx  = get_ch_index("F4",  "FP2")
+    fp1_idx = get_ch_index("FP1", "F3", "F7")   # left hemisphere
+    fp2_idx = get_ch_index("FP2", "F4", "F8")   # right hemisphere
+    # Secondary FAA pair: F3 (left) / F4 (right) — no cross-hemisphere fallbacks
+    f3_idx  = get_ch_index("F3",  "AF3", "FC1")  # FIXED: removed "FP1" fallback
+    f4_idx  = get_ch_index("F4",  "AF4", "FC2")  # FIXED: removed "FP2" fallback
 
-    if fp2_idx is not None and fp1_idx is not None:
+    if fp2_idx is not None and fp1_idx is not None and fp2_idx != fp1_idx:
+        # Primary pair: FP2 (right) vs FP1 (left)
         right_alpha = max(1e-9, float(band_powers_abs["alpha"][fp2_idx]))
         left_alpha  = max(1e-9, float(band_powers_abs["alpha"][fp1_idx]))
-    elif f4_idx is not None and f3_idx is not None:
+    elif (f4_idx is not None and f3_idx is not None
+          and f4_idx != f3_idx and f4_idx != fp1_idx and f3_idx != fp2_idx):
+        # Secondary pair: F4 (right) vs F3 (left)
         right_alpha = max(1e-9, float(band_powers_abs["alpha"][f4_idx]))
         left_alpha  = max(1e-9, float(band_powers_abs["alpha"][f3_idx]))
     else:
-        # Fallback: symmetric → FAA = 0
+        # Fallback: no valid asymmetric pair found → FAA = 0 (symmetric assumption)
         mean_alpha  = max(1e-9, float(np.mean(band_powers_abs["alpha"])))
         right_alpha = mean_alpha
         left_alpha  = mean_alpha
@@ -165,8 +174,12 @@ def extract_features_from_raw(raw) -> dict:
     global_alpha_abs = _safe_scalar(float(np.mean(band_powers_abs["alpha"]))) + 1e-12
     global_gamma_abs = _safe_scalar(float(np.mean(band_powers_abs["gamma"])))
 
-    tbr = _safe_scalar(global_theta_abs / global_beta_abs)
-    tar = _safe_scalar(global_theta_abs / global_alpha_abs)
+    # Guard theta against negative values (can occur after NaN sanitisation on
+    # very short or near-flat signals) before using it in ratio denominators.
+    global_theta_abs_safe = max(0.0, global_theta_abs)
+
+    tbr = _safe_scalar(global_theta_abs_safe / global_beta_abs)
+    tar = _safe_scalar(global_theta_abs_safe / global_alpha_abs)
 
     # -------------------------------------------------------------------------
     # Feature 11: Engagement Index (EI)
@@ -174,7 +187,7 @@ def extract_features_from_raw(raw) -> dict:
     # Reference: Pope, Bogart & Bartolome (1995) Biol. Psychol.
     # -------------------------------------------------------------------------
     engagement_index = _safe_scalar(
-        global_beta_abs / (global_theta_abs + global_alpha_abs + 1e-12)
+        global_beta_abs / (global_theta_abs_safe + global_alpha_abs + 1e-12)
     )
 
     # -------------------------------------------------------------------------

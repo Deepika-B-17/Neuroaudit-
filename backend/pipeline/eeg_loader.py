@@ -232,30 +232,55 @@ def load_eeg_file(file_path: str):
     # --- Basic preprocessing ------------------------------------------------
     sfreq        = float(raw.info["sfreq"])
     n_times      = raw.n_times
-    duration_sec = float(n_times / sfreq)
+    duration_sec = float(n_times / sfreq) if sfreq > 0 else 0.0
 
-    # Bandpass 0.5–45 Hz (FIR, firwin)
+    if n_times == 0 or duration_sec <= 0.0:
+        raise ValueError(f"EEG recording contains no data points (empty signal).")
+
+    if duration_sec < 0.2:
+        raise ValueError(
+            f"EEG recording is too short ({duration_sec:.2f}s) for signal processing. "
+            f"Minimum duration is 0.2s."
+        )
+
+    # Bandpass 0.5–45 Hz (FIR, firwin) with robust filter-length selection
     try:
-        filt_len = (
-            "auto"
-            if duration_sec >= 10.0
-            else f"{max(0.5, duration_sec - 0.2):.1f}s"
-        )
-        raw.filter(
-            l_freq=0.5, h_freq=45.0,
-            filter_length=filt_len,
-            fir_design="firwin",
-            verbose=False,
-        )
+        if duration_sec >= 10.0:
+            filt_len = "auto"
+        elif duration_sec >= 2.0:
+            # Bound filter length safely below total duration to avoid MNE FIR length errors
+            safe_dur = min(max(0.5, duration_sec - 0.4), duration_sec * 0.8)
+            filt_len = f"{safe_dur:.2f}s"
+        else:
+            # For short recordings (0.2s - 2.0s), compute an odd sample length <= 80% of signal
+            max_samples = int(n_times * 0.8)
+            flen_samples = max_samples if (max_samples % 2 == 1) else max_samples - 1
+            filt_len = max(3, flen_samples) if flen_samples >= 3 else None
+
+        if filt_len is not None:
+            # Ensure highpass is below Nyquist
+            h_cutoff = min(45.0, (sfreq / 2.0) - 1.0)
+            if h_cutoff > 0.5:
+                raw.filter(
+                    l_freq=0.5, h_freq=h_cutoff,
+                    filter_length=filt_len,
+                    fir_design="firwin",
+                    verbose=False,
+                )
     except Exception:
-        pass   # If filtering fails (e.g. extremely short signal) continue
+        # If filtering fails on edge-case short signals, proceed with raw signal
+        pass
 
-    # Notch 50 & 60 Hz
+    # Notch 50 & 60 Hz (only for frequencies strictly below Nyquist)
     try:
-        if duration_sec >= 5.0:
+        nyquist = sfreq / 2.0
+        notch_candidates = [50.0, 60.0]
+        valid_notch = [f for f in notch_candidates if f < (nyquist - 2.0)]
+        if duration_sec >= 5.0 and valid_notch:
+            notch_filt_len = "auto" if duration_sec >= 10.0 else f"{min(2.0, duration_sec * 0.5):.1f}s"
             raw.notch_filter(
-                freqs=[50.0, 60.0],
-                filter_length=filt_len,
+                freqs=valid_notch,
+                filter_length=notch_filt_len,
                 fir_design="firwin",
                 verbose=False,
             )

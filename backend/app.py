@@ -55,20 +55,79 @@ app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES   # enforced by Flask/Werkze
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 
 
+import re
+
 # ---------------------------------------------------------------------------
-# Helpers
+# Helpers & Security Sanitization
 # ---------------------------------------------------------------------------
 
-def _json_error(message: str, details: str = "", status: int = 400):
-    body = {"error": message}
-    if details:
-        body["details"] = details
+def _sanitize_error_message(msg: str) -> str:
+    """Strip absolute filesystem paths to avoid exposing host filesystem structure."""
+    if not msg:
+        return ""
+    # Strip Windows & Unix paths
+    sanitized = re.sub(r'[A-Za-z]:\\[\w\\\.-]+', '[path]', str(msg))
+    sanitized = re.sub(r'/[\w/\.-]+', '[path]', sanitized)
+    return sanitized.strip()
+
+
+def _json_error(message: str, details: str = "", status: int = 400, code: str = "ERROR"):
+    """Produce a structured, sanitized JSON error response."""
+    clean_message = _sanitize_error_message(message)
+    clean_details = _sanitize_error_message(details) if details else ""
+    body = {
+        "success": False,
+        "error": {
+            "code": code,
+            "message": clean_message,
+        },
+    }
+    if clean_details:
+        body["error"]["details"] = clean_details
+        body["details"] = clean_details
+    else:
+        body["details"] = clean_message
+
     return jsonify(body), status
 
 
 def _allowed_file(filename: str) -> bool:
     ext = os.path.splitext(filename.lower())[1]
     return ext in ALLOWED_EXTENSIONS
+
+
+def cleanup_old_uploads(max_age_hours: int = 24) -> int:
+    """
+    Safely remove uploaded temporary files older than max_age_hours.
+    Database audit records remain intact because all features and metadata
+    are persisted in SQLite.
+    """
+    now = datetime.utcnow().timestamp()
+    removed_count = 0
+    try:
+        if os.path.exists(UPLOADS_DIR):
+            for fname in os.listdir(UPLOADS_DIR):
+                fpath = os.path.join(UPLOADS_DIR, fname)
+                if os.path.isfile(fpath):
+                    mtime = os.path.getmtime(fpath)
+                    if (now - mtime) > (max_age_hours * 3600):
+                        try:
+                            os.remove(fpath)
+                            removed_count += 1
+                        except Exception:
+                            pass
+    except Exception as exc:
+        logger.warning("Upload cleanup error: %s", exc)
+    return removed_count
+
+
+def _cleanup(path: str) -> None:
+    """Remove a temporary file if it exists."""
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except Exception:
+        pass
 
 
 # ---------------------------------------------------------------------------
@@ -116,7 +175,7 @@ def api_root():
     return jsonify({
         "service":     "NeuroAudit API",
         "version":     "2.0.0",
-        "phase":       "Phase 2 — Heuristic Baseline",
+        "phase":       "Phase 1 — Stabilization & Baseline",
         "endpoints": [
             "GET  /api/health",
             "POST /api/upload",
@@ -140,7 +199,7 @@ def health_check():
         "status":    "healthy",
         "service":   "NeuroAudit API",
         "version":   "2.0.0",
-        "phase":     "Phase 2 — Heuristic Baseline",
+        "phase":     "Phase 1 — Stabilization & Baseline",
         "timestamp": datetime.utcnow().isoformat(),
     }), 200
 
@@ -156,11 +215,21 @@ def upload_eeg():
         description — optional description / study context
     """
     if "file" not in request.files:
-        return _json_error("No EEG file provided.", "Include a file field in the multipart request.")
+        return _json_error(
+            "No EEG file provided.",
+            "Include a 'file' field in the multipart/form-data request.",
+            status=400,
+            code="MISSING_FILE",
+        )
 
     file = request.files["file"]
-    if not file.filename:
-        return _json_error("File has an empty filename.")
+    if not file or not file.filename:
+        return _json_error(
+            "File has an empty filename.",
+            "Please select a valid EEG recording file.",
+            status=400,
+            code="EMPTY_FILENAME",
+        )
 
     # --- Extension whitelist ------------------------------------------------
     if not _allowed_file(file.filename):
@@ -169,27 +238,57 @@ def upload_eeg():
             f"Unsupported file type: '{ext}'.",
             f"Accepted formats: {', '.join(sorted(ALLOWED_EXTENSIONS))}.",
             status=415,
+            code="UNSUPPORTED_FILE_TYPE",
         )
 
-    # --- Secure filename + store --------------------------------------------
-    safe_name  = secure_filename(file.filename)
-    file_uuid  = uuid.uuid4().hex[:8]
+    # --- Secure filename + store with path traversal protection -------------
+    raw_name = os.path.basename(file.filename)
+    safe_name = secure_filename(raw_name)
+    ext = os.path.splitext(file.filename.lower())[1]
+    if not safe_name:
+        safe_name = f"recording{ext}"
+
+    file_uuid   = uuid.uuid4().hex[:8]
     stored_name = f"{file_uuid}_{safe_name}"
-    file_path  = os.path.join(UPLOADS_DIR, stored_name)
+    file_path   = os.path.abspath(os.path.join(UPLOADS_DIR, stored_name))
+
+    # Path traversal assertion
+    uploads_root = os.path.abspath(UPLOADS_DIR)
+    if not file_path.startswith(uploads_root):
+        return _json_error(
+            "Invalid file path detected.",
+            "Filename violates path security restrictions.",
+            status=400,
+            code="INVALID_PATH",
+        )
 
     try:
         file.save(file_path)
     except Exception as exc:
-        return _json_error("Failed to save uploaded file.", str(exc), status=500)
+        logger.error("Failed to save upload: %s", exc)
+        return _json_error("Failed to save uploaded file.", status=500, code="STORAGE_ERROR")
 
-    audit_name  = request.form.get("auditName",   "").strip() or f"Audit — {safe_name}"
+    # Check for empty file (0 bytes)
+    file_size = os.path.getsize(file_path)
+    if file_size == 0:
+        _cleanup(file_path)
+        return _json_error(
+            "Uploaded file is empty (0 bytes).",
+            "Please upload a non-empty EEG recording.",
+            status=400,
+            code="EMPTY_FILE",
+        )
+
+    audit_name  = request.form.get("auditName", "").strip() or f"Audit — {safe_name}"
     description = request.form.get("description", "").strip()
 
-    logger.info("Upload received: %s → %s", file.filename, stored_name)
+    logger.info("Upload received: %s (%d bytes) → %s", file.filename, file_size, stored_name)
 
     try:
         audit_result = analyze_eeg_pipeline(file_path, audit_name=audit_name, description=description)
         save_audit(audit_result)
+        # Periodically clean up old temporary uploads (older than 24h)
+        cleanup_old_uploads()
         logger.info(
             "Audit complete: %s  Risk=%d (%s)",
             audit_result["session_id"], audit_result["overallRisk"], audit_result["riskLevel"],
@@ -197,23 +296,25 @@ def upload_eeg():
         return jsonify(audit_result), 200
 
     except ValueError as exc:
-        # EEG parsing error (unsupported format, corrupt file, etc.)
+        # EEG parsing / validation error (unsupported format, corrupt file, too short, etc.)
         _cleanup(file_path)
-        return _json_error("Failed to parse EEG file.", str(exc), status=422)
+        logger.warning("EEG validation failed for %s: %s", file.filename, exc)
+        return _json_error(
+            "Failed to parse EEG file.",
+            str(exc),
+            status=422,
+            code="INVALID_EEG_FILE",
+        )
 
     except Exception as exc:
         _cleanup(file_path)
-        logger.error("Pipeline error: %s", exc, exc_info=True)
-        return _json_error("EEG analysis pipeline failed.", str(exc), status=500)
-
-
-def _cleanup(path: str) -> None:
-    """Remove a temporary file if it exists."""
-    try:
-        if path and os.path.exists(path):
-            os.remove(path)
-    except Exception:
-        pass
+        logger.error("Pipeline error on %s: %s", file.filename, exc, exc_info=True)
+        return _json_error(
+            "EEG analysis pipeline failed.",
+            "The signal processing pipeline encountered an unexpected error.",
+            status=500,
+            code="PIPELINE_ERROR",
+        )
 
 
 @app.route("/api/analysis/<session_id>", methods=["GET"])
@@ -221,7 +322,11 @@ def get_analysis(session_id: str):
     """Retrieve full analysis results by session_id."""
     audit = get_audit(session_id)
     if not audit:
-        return _json_error(f"Audit session '{session_id}' not found.", status=404)
+        return _json_error(
+            f"Audit session '{session_id}' not found.",
+            status=404,
+            code="SESSION_NOT_FOUND",
+        )
 
     audit["recentAudits"] = list_audits(limit=5)
     audit["disclaimer"]   = PRIVACY_DISCLAIMER
@@ -233,7 +338,11 @@ def get_audit_recommendations(session_id: str):
     """Retrieve structured privacy-mitigation recommendations for an audit."""
     audit = get_audit(session_id)
     if not audit:
-        return _json_error(f"Audit session '{session_id}' not found.", status=404)
+        return _json_error(
+            f"Audit session '{session_id}' not found.",
+            status=404,
+            code="SESSION_NOT_FOUND",
+        )
 
     return jsonify({
         "session_id":     session_id,
@@ -246,7 +355,11 @@ def get_explainability(session_id: str):
     """Return per-dimension explainability blocks for an audit."""
     audit = get_audit(session_id)
     if not audit:
-        return _json_error(f"Audit session '{session_id}' not found.", status=404)
+        return _json_error(
+            f"Audit session '{session_id}' not found.",
+            status=404,
+            code="SESSION_NOT_FOUND",
+        )
 
     return jsonify({
         "session_id":    session_id,
@@ -265,7 +378,11 @@ def simulate_mitigation(session_id: str, control_id: str):
     """
     audit = get_audit(session_id)
     if not audit:
-        return _json_error(f"Audit session '{session_id}' not found.", status=404)
+        return _json_error(
+            f"Audit session '{session_id}' not found.",
+            status=404,
+            code="SESSION_NOT_FOUND",
+        )
 
     current_risk = audit.get("overallRisk", 50)
     simulation   = MitigationSimulator.simulate(control_id, current_risk)
@@ -277,7 +394,11 @@ def download_pdf_report(session_id: str):
     """Generate and stream a publication-grade PDF audit report."""
     audit = get_audit(session_id)
     if not audit:
-        return _json_error(f"Audit session '{session_id}' not found.", status=404)
+        return _json_error(
+            f"Audit session '{session_id}' not found.",
+            status=404,
+            code="SESSION_NOT_FOUND",
+        )
 
     try:
         pdf_bytes = generate_pdf_report(audit)
@@ -293,7 +414,12 @@ def download_pdf_report(session_id: str):
         )
     except Exception as exc:
         logger.error("PDF generation failed: %s", exc, exc_info=True)
-        return _json_error("Failed to generate PDF report.", str(exc), status=500)
+        return _json_error(
+            "Failed to generate PDF report.",
+            "An error occurred while compiling the ReportLab document.",
+            status=500,
+            code="PDF_GENERATION_FAILED",
+        )
 
 
 @app.route("/api/audits", methods=["GET"])
@@ -358,6 +484,7 @@ def load_sample_audit():
             f"Sample file '{sample_id}' not found.",
             "Use GET /api/samples to list available samples.",
             status=404,
+            code="SAMPLE_NOT_FOUND",
         )
 
     try:
@@ -371,7 +498,12 @@ def load_sample_audit():
         return jsonify(audit_result), 200
     except Exception as exc:
         logger.error("Sample analysis failed: %s", exc, exc_info=True)
-        return _json_error("Failed to analyze sample EEG.", str(exc), status=500)
+        return _json_error(
+            "Failed to analyze sample EEG.",
+            str(exc),
+            status=500,
+            code="SAMPLE_ANALYSIS_FAILED",
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -384,23 +516,39 @@ def request_entity_too_large(exc):
         "Uploaded file exceeds the 50 MB size limit.",
         "Please compress or truncate the EEG recording before uploading.",
         status=413,
+        code="PAYLOAD_TOO_LARGE",
     )
 
 
 @app.errorhandler(404)
 def not_found(exc):
-    return _json_error("Endpoint not found.", str(exc), status=404)
+    return _json_error(
+        "Endpoint not found.",
+        str(exc),
+        status=404,
+        code="ENDPOINT_NOT_FOUND",
+    )
 
 
 @app.errorhandler(405)
 def method_not_allowed(exc):
-    return _json_error("HTTP method not allowed for this endpoint.", str(exc), status=405)
+    return _json_error(
+        "HTTP method not allowed for this endpoint.",
+        str(exc),
+        status=405,
+        code="METHOD_NOT_ALLOWED",
+    )
 
 
 @app.errorhandler(500)
 def internal_error(exc):
     logger.error("Internal server error: %s", exc, exc_info=True)
-    return _json_error("Internal server error.", str(exc), status=500)
+    return _json_error(
+        "Internal server error.",
+        "An unexpected internal error occurred on the server.",
+        status=500,
+        code="INTERNAL_SERVER_ERROR",
+    )
 
 
 # ---------------------------------------------------------------------------
