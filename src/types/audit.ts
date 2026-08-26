@@ -4,6 +4,14 @@ export type Priority = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW'
 
 export type RiskDimensionKey = 'identity' | 'emotion' | 'stress' | 'workload'
 
+export interface RiskContributor {
+  feature: string
+  raw_value: number
+  normalized_value: number
+  weight: number
+  contribution: number
+}
+
 export interface RiskDimension {
   key: RiskDimensionKey
   label: string
@@ -13,6 +21,7 @@ export interface RiskDimension {
   explanation: string
   concern: string
   contributing_indicators?: string[]
+  contributors?: RiskContributor[]
   model_type?: string
   quality_qualified?: boolean
 }
