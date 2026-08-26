@@ -154,7 +154,7 @@ def generate_pdf_report(audit: dict) -> bytes:
             Paragraph("Phase 2 — Heuristic Baseline", S["muted"]),
         ],
     ]
-    meta_tbl = Table(meta_rows, colWidths=[80, 185, 90, 185])
+    meta_tbl = Table(meta_rows, colWidths=[80, 180, 90, 180])
     meta_tbl.setStyle(TableStyle([
         ("VALIGN",        (0,0), (-1,-1), "TOP"),
         ("BOTTOMPADDING", (0,0), (-1,-1), 3),
@@ -185,7 +185,7 @@ def generate_pdf_report(audit: dict) -> bytes:
         Paragraph("<b>EXECUTIVE SUMMARY</b>", S["sec"]),
         Paragraph(exec_txt, S["body"]),
     ]
-    exec_tbl = Table([[score_cell, summary_cell]], colWidths=[140, 400])
+    exec_tbl = Table([[score_cell, summary_cell]], colWidths=[140, 390])
     exec_tbl.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,-1), C_BG),
         ("BOX",        (0,0), (-1,-1), 1, C_BORDER),
@@ -232,7 +232,7 @@ def generate_pdf_report(audit: dict) -> bytes:
                 Paragraph(str(q_det.get("n_flat_channels", 0)), S["body"]),
             ],
         ]
-        q_tbl = Table(q_rows, colWidths=[90, 165, 120, 165])
+        q_tbl = Table(q_rows, colWidths=[85, 175, 115, 155])
         q_tbl.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,-1), C_BG),
             ("BOX",        (0,0), (-1,-1), 0.5, C_BORDER),
@@ -279,7 +279,7 @@ def generate_pdf_report(audit: dict) -> bytes:
             Paragraph(dim.get("model_type", "HEURISTIC_BASELINE"),      S["muted"]),
             Paragraph(dim.get("explanation", dim.get("summary", "")),    S["body"]),
         ])
-    dim_tbl = Table(dim_rows, colWidths=[80, 55, 50, 80, 275])
+    dim_tbl = Table(dim_rows, colWidths=[80, 50, 50, 80, 270])
     dim_tbl.setStyle(TableStyle([
         ("BACKGROUND",    (0,0), (-1,0),  colors.HexColor("#F1F5F9")),
         ("GRID",          (0,0), (-1,-1), 0.5, C_BORDER),
@@ -312,17 +312,8 @@ def generate_pdf_report(audit: dict) -> bytes:
     key_findings = audit.get("keyFindings", [])
     if key_findings:
         story.append(Paragraph("<b>KEY PRIVACY EXPOSURE FINDINGS</b>", S["sec"]))
-        fi_rows = [[
-            Paragraph("•", S["body"]),
-            Paragraph(f, S["body"]),
-        ] for f in key_findings]
-        fi_tbl = Table(fi_rows, colWidths=[12, 528])
-        fi_tbl.setStyle(TableStyle([
-            ("VALIGN",        (0,0), (-1,-1), "TOP"),
-            ("BOTTOMPADDING", (0,0), (-1,-1), 2),
-            ("TOPPADDING",    (0,0), (-1,-1), 2),
-        ]))
-        story.append(fi_tbl)
+        for f in key_findings:
+            story.append(Paragraph(f"• {f}", S["bullet"]))
         _sp(story, 8)
 
     # ------------------------------------------------------------------ #
@@ -370,7 +361,7 @@ def generate_pdf_report(audit: dict) -> bytes:
                 )
             )
 
-            rec_tbl = Table([[rec_content]], colWidths=[540])
+            rec_tbl = Table([[rec_content]], colWidths=[530])
             rec_tbl.setStyle(TableStyle([
                 ("BACKGROUND",    (0,0), (-1,-1), C_BG),
                 ("BOX",           (0,0), (-1,-1), 0.5, C_BORDER),

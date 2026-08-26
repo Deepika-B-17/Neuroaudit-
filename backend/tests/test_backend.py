@@ -43,7 +43,7 @@ class TestNeuroAuditBackend(unittest.TestCase):
             self.assertTrue(os.path.exists(tmp_path))
 
             # Load EEG
-            raw, metadata, preview_traces = load_eeg_file(tmp_path)
+            raw, metadata, preview_traces, quality_report = load_eeg_file(tmp_path)
             self.assertEqual(metadata["n_channels"], 8)
             self.assertIn("FP1", preview_traces)
 

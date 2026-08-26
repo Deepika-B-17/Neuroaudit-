@@ -255,6 +255,7 @@ def load_eeg_file(file_path: str):
         if duration_sec >= 5.0:
             raw.notch_filter(
                 freqs=[50.0, 60.0],
+                filter_length=filt_len,
                 fir_design="firwin",
                 verbose=False,
             )
