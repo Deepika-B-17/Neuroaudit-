@@ -80,7 +80,6 @@ build/
 # Local data / uploads
 backend/uploads/
 backend/neuroaudit.db
-src/data/
 
 # IDE
 .vscode/
