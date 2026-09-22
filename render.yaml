@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: neuroaudit-backend
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
