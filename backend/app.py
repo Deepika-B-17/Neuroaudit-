@@ -52,7 +52,7 @@ os.makedirs(UPLOADS_DIR, exist_ok=True)
 # ---------------------------------------------------------------------------
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = MAX_UPLOAD_BYTES   # enforced by Flask/Werkzeug
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/api/*": {"origins": "*"}}, expose_headers=["Content-Disposition"])
 
 
 import re
@@ -286,8 +286,10 @@ def upload_eeg():
 
     try:
         audit_result = analyze_eeg_pipeline(file_path, audit_name=audit_name, description=description)
+        # Use sanitized client filename (no path, no server UUID prefix)
+        audit_result["fileName"] = safe_name
         save_audit(audit_result)
-        # Periodically clean up old temporary uploads (older than 24h)
+        # Periodically clean up old temporary uploads (older than 24h) as defensive fallback
         cleanup_old_uploads()
         logger.info(
             "Audit complete: %s  Risk=%d (%s)",
@@ -297,7 +299,6 @@ def upload_eeg():
 
     except ValueError as exc:
         # EEG parsing / validation error (unsupported format, corrupt file, too short, etc.)
-        _cleanup(file_path)
         logger.warning("EEG validation failed for %s: %s", file.filename, exc)
         return _json_error(
             "Failed to parse EEG file.",
@@ -307,7 +308,6 @@ def upload_eeg():
         )
 
     except Exception as exc:
-        _cleanup(file_path)
         logger.error("Pipeline error on %s: %s", file.filename, exc, exc_info=True)
         return _json_error(
             "EEG analysis pipeline failed.",
@@ -315,6 +315,11 @@ def upload_eeg():
             status=500,
             code="PIPELINE_ERROR",
         )
+
+    finally:
+        # Privacy: always delete the temporary EEG file after processing,
+        # regardless of success or failure.
+        _cleanup(file_path)
 
 
 @app.route("/api/analysis/<session_id>", methods=["GET"])
@@ -406,11 +411,11 @@ def download_pdf_report(session_id: str):
             f"NeuroAudit_Report_"
             f"{audit['fileName'].replace('.edf', '').replace('.fif', '')}_{session_id}.pdf"
         )
-        return send_file(
-            io.BytesIO(pdf_bytes),
+        from flask import Response
+        return Response(
+            pdf_bytes,
             mimetype="application/pdf",
-            as_attachment=True,
-            download_name=filename,
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'}
         )
     except Exception as exc:
         logger.error("PDF generation failed: %s", exc, exc_info=True)

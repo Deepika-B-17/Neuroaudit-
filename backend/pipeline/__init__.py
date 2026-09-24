@@ -75,6 +75,21 @@ def analyze_eeg_pipeline(
     now      = datetime.utcnow()
     date_str = now.strftime("%d %b %Y")
 
+    # Features for the immediate API response (includes preview_traces for frontend)
+    features_api = {
+        **features,
+        "preview_traces": preview_traces,
+        "metadata":       metadata,
+    }
+
+    # Features for database persistence (excludes preview_traces and server paths)
+    metadata_for_db = {k: v for k, v in metadata.items() if k != "quality_report"}
+    metadata_for_db.pop("file_size", None)  # already stored as a top-level column
+    features_for_db = {
+        **features,
+        "metadata": metadata_for_db,
+    }
+
     audit_result = {
         "session_id":      session_id,
         "auditName":       audit_name or f"Audit — {file_name}",
@@ -96,12 +111,11 @@ def analyze_eeg_pipeline(
         "dimensions":      dimensions,
         "explainability":  explainability,
 
-        # Raw features + preview
-        "features": {
-            **features,
-            "preview_traces": preview_traces,
-            "metadata":       metadata,
-        },
+        # Full features for API response (includes preview_traces)
+        "features":        features_api,
+
+        # Privacy-safe features for database (excludes preview_traces)
+        "_features_for_db": features_for_db,
 
         # Quality gate results
         "qualityReport":   quality_report,

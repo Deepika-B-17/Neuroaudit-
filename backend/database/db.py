@@ -13,6 +13,7 @@ import sqlite3
 from datetime import datetime
 
 DEFAULT_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "neuroaudit.db")
+ANONYMOUS_FILENAME = "EEG Recording"
 
 
 # ---------------------------------------------------------------------------
@@ -110,6 +111,15 @@ def save_audit(audit_data: dict, db_path=None):
     init_db(db_path)
     conn = get_db_connection(db_path)
     try:
+        # Privacy: extract sanitized features for persistence (never store preview_traces)
+        db_features = _get(audit_data, "_features_for_db", default=None)
+        if db_features is None:
+            raw_features = _get(audit_data, "features", default={})
+            if isinstance(raw_features, dict):
+                db_features = {k: v for k, v in raw_features.items() if k != "preview_traces"}
+            else:
+                db_features = {}
+
         with conn:
             conn.execute("""
                 INSERT OR REPLACE INTO audits (
@@ -136,8 +146,8 @@ def save_audit(audit_data: dict, db_path=None):
                 _get(audit_data, "session_id"),
                 # File info – accept camelCase OR snake_case
                 _get(audit_data, "auditName",        "audit_name",        default="Untitled Audit"),
-                _get(audit_data, "fileName",         "file_name",         default="recording.edf"),
-                _get(audit_data, "filePath",         "file_path",         default=""),
+                ANONYMOUS_FILENAME,  # Privacy: persist anonymous label instead of real client filename
+                "",  # Privacy: do not persist server file_path
                 _get(audit_data, "fileSize",         "file_size",         default=0),
                 _get(audit_data, "description",                           default=""),
                 # Risk
@@ -148,7 +158,7 @@ def save_audit(audit_data: dict, db_path=None):
                 # JSON blobs
                 json.dumps(_get(audit_data, "keyFindings",    "key_findings",    default=[])),
                 json.dumps(_get(audit_data, "dimensions",                        default=[])),
-                json.dumps(_get(audit_data, "features",                          default={})),
+                json.dumps(db_features),
                 json.dumps(_get(audit_data, "recommendations",                   default=[])),
                 json.dumps(_get(audit_data, "qualityReport",  "quality_report",  default={})),
                 # Metadata
