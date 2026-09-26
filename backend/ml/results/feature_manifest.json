@@ -1,0 +1,24 @@
+{
+  "features": [
+    "bp_delta_rel",
+    "bp_theta_rel",
+    "bp_alpha_rel",
+    "bp_beta_rel",
+    "bp_gamma_rel",
+    "faa",
+    "theta_beta_ratio",
+    "theta_alpha_ratio",
+    "engagement_index",
+    "iapf_hz",
+    "de_delta",
+    "de_theta",
+    "de_alpha",
+    "de_beta",
+    "de_gamma",
+    "hjorth_activity",
+    "hjorth_mobility",
+    "hjorth_complexity",
+    "bui"
+  ],
+  "count": 19
+}

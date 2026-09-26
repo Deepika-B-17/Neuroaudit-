@@ -1,0 +1,121 @@
+{
+  "importances": [
+    {
+      "Feature": "bp_gamma_rel",
+      "RF_Importance": 0.11450224333502686,
+      "LR_Mean_Abs_Coef": 1.9013305494704131
+    },
+    {
+      "Feature": "bui",
+      "RF_Importance": 0.10959994574824176,
+      "LR_Mean_Abs_Coef": 1.1551115158448242
+    },
+    {
+      "Feature": "bp_beta_rel",
+      "RF_Importance": 0.0959234111513905,
+      "LR_Mean_Abs_Coef": 2.560487484744549
+    },
+    {
+      "Feature": "hjorth_mobility",
+      "RF_Importance": 0.0910461056403659,
+      "LR_Mean_Abs_Coef": 2.16235222651259
+    },
+    {
+      "Feature": "hjorth_complexity",
+      "RF_Importance": 0.08472916717480129,
+      "LR_Mean_Abs_Coef": 1.6510347531560143
+    },
+    {
+      "Feature": "bp_alpha_rel",
+      "RF_Importance": 0.08104450833528715,
+      "LR_Mean_Abs_Coef": 2.3115856948703772
+    },
+    {
+      "Feature": "iapf_hz",
+      "RF_Importance": 0.07905784369427708,
+      "LR_Mean_Abs_Coef": 0.621311919244987
+    },
+    {
+      "Feature": "engagement_index",
+      "RF_Importance": 0.07556103587598642,
+      "LR_Mean_Abs_Coef": 1.3846156130171465
+    },
+    {
+      "Feature": "theta_alpha_ratio",
+      "RF_Importance": 0.07178479010293412,
+      "LR_Mean_Abs_Coef": 1.2524947983660017
+    },
+    {
+      "Feature": "bp_delta_rel",
+      "RF_Importance": 0.06676655387181785,
+      "LR_Mean_Abs_Coef": 1.412438465668591
+    },
+    {
+      "Feature": "bp_theta_rel",
+      "RF_Importance": 0.06610383009715151,
+      "LR_Mean_Abs_Coef": 1.2989710366198435
+    },
+    {
+      "Feature": "theta_beta_ratio",
+      "RF_Importance": 0.06388056497271961,
+      "LR_Mean_Abs_Coef": 1.5309386242305105
+    },
+    {
+      "Feature": "faa",
+      "RF_Importance": 0.0,
+      "LR_Mean_Abs_Coef": 0.0
+    },
+    {
+      "Feature": "de_delta",
+      "RF_Importance": 0.0,
+      "LR_Mean_Abs_Coef": 8.955886476099364e-14
+    },
+    {
+      "Feature": "de_theta",
+      "RF_Importance": 0.0,
+      "LR_Mean_Abs_Coef": 8.955886476099364e-14
+    },
+    {
+      "Feature": "de_gamma",
+      "RF_Importance": 0.0,
+      "LR_Mean_Abs_Coef": 8.955886476099364e-14
+    },
+    {
+      "Feature": "de_beta",
+      "RF_Importance": 0.0,
+      "LR_Mean_Abs_Coef": 8.955886476099364e-14
+    },
+    {
+      "Feature": "de_alpha",
+      "RF_Importance": 0.0,
+      "LR_Mean_Abs_Coef": 8.955886476099364e-14
+    },
+    {
+      "Feature": "hjorth_activity",
+      "RF_Importance": 0.0,
+      "LR_Mean_Abs_Coef": 0.0
+    }
+  ],
+  "ablations": [
+    {
+      "Ablation": "All 19 Features",
+      "Balanced_Accuracy": 0.6434806207479322,
+      "Macro_F1": 0.6382213116972018
+    },
+    {
+      "Ablation": "Without BUI",
+      "Balanced_Accuracy": 0.5923351536664686,
+      "Macro_F1": 0.5852372008054286
+    },
+    {
+      "Ablation": "Without FAA",
+      "Balanced_Accuracy": 0.6509614971988998,
+      "Macro_F1": 0.646386005539212
+    },
+    {
+      "Ablation": "Without Heuristic Features",
+      "Balanced_Accuracy": 0.564862015052917,
+      "Macro_F1": 0.5563273218124243
+    }
+  ]
+}

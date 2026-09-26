@@ -1,0 +1,31 @@
+{
+  "dataset_summary": "PhysioNet Auditory EEG-Biometric Dataset (s01-s20)",
+  "experiment_configuration": "5-Fold GroupKFold (run_id), RF max_depth=10, 5s epochs",
+  "number_of_recordings": 239,
+  "number_correct": 208,
+  "number_incorrect": 31,
+  "identity_risk_statistics": {
+    "mean_overall": 59.13681508292205,
+    "mean_correct": 59.34417450755767,
+    "mean_incorrect": 57.745500233754086
+  },
+  "empirical_vulnerability_statistics": {
+    "accuracy_recording_level": 0.8702928870292888,
+    "mean_confidence_overall": 0.38044572850469055,
+    "recording_level_balanced_accuracy": 0.8708333333333333,
+    "recording_level_macro_f1": 0.8693794241185546
+  },
+  "association_method": "Point-biserial correlation",
+  "association_value": 0.10160587660356232,
+  "p_value": 0.11720577225859605,
+  "confidence_interval": [
+    -0.010690602114741314,
+    0.20981997815275175
+  ],
+  "distribution_comparison": {
+    "correct_median": 58.375,
+    "incorrect_median": 57.65217391304348
+  },
+  "interpretation": "A. Epoch-level balanced accuracy: 64.35%\\nB. Recording-level majority-vote accuracy: 208/239 = 87.03%\\nC. Recording-level balanced accuracy: 87.08%\\nD. Recording-level Macro F1: 86.94%\\nE. Association between heuristic Identity Risk and recording-level inference success: r = 0.1016, p = 0.1172, 95% CI [-0.0107, 0.2098]\\nInterpretation: The current heuristic Identity Risk does not show a statistically clear association with empirical identity-inference success in this dataset.",
+  "limitations": "Point-biserial correlation assumes continuous variable is approximately normally distributed. Aggregation by majority vote may threshold nuanced probabilities."
+}

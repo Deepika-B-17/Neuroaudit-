@@ -41,6 +41,7 @@ instance/
 # EEG / large datasets
 data/
 datasets/
+research_data/
 *.edf
 *.bdf
 *.fif

@@ -142,7 +142,7 @@ def evaluate_session_disjoint_multiclass(
         inference_advantage_gamma=round(gamma, 4),
         confusion_matrix=cm,
         model_name=classifier_type,
-        evaluation_strategy="Session-Disjoint GroupKFold (Cross-Run)",
+        evaluation_strategy="Recording-Disjoint (Cross-Recording) Closed-World Identity Classification",
     )
 
 
